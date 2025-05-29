@@ -133,7 +133,7 @@ export default function Tasks() {
         <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <span className="text-2xl font-extrabold text-white tracking-tight drop-shadow">
-              Blocklist Tasks
+              BlockTasks
             </span>
           </div>
           <button
