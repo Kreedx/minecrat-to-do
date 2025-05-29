@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { auth, db } from "../firebase";
-import { signOut } from "firebase/auth";
+import { db } from "../firebase";
 import { ref, onValue } from "firebase/database";
 import TaskList from "../components/taskList";
 import TabList from "../components/TabList";
+import Navbar from "../components/Navbar";
 
 export default function Tasks() {
   const { currentUser } = useAuth();
@@ -14,20 +14,6 @@ export default function Tasks() {
   const [tabs, setTabs] = useState([]);
 
   console.log("Tasks component state:", { currentUser: !!currentUser, loading, error }); // Debug log
-
-  const handleLogout = async () => {
-    console.log("Attempting to log out"); // Debug log
-    try {
-      // Clear local state before logout
-      setActiveTab(null);
-      setTabs([]);
-      await signOut(auth);
-      console.log("Successfully logged out"); // Debug log
-    } catch (error) {
-      console.error("Logout error:", error); // Debug log
-      setError("Failed to log out");
-    }
-  };
 
   const handleTabSelect = (tab) => {
     // Store selected tab ID in localStorage
@@ -140,28 +126,12 @@ export default function Tasks() {
         Error: {error}
       </div>
     );
-
   return (
     <div className="text-gray-800">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shadow-lg sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <span className="text-2xl font-extrabold text-white tracking-tight drop-shadow">
-              BlockTasks
-            </span>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-white text-indigo-600 px-6 py-2 rounded-full shadow-md hover:bg-indigo-100 hover:text-indigo-700 transition font-semibold focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+      <Navbar />
+      {/* Main Content */}      
+      <main className="max-w-7xl h-screen mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow">
+        <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6 mb-8">
           <TabList
             onTabSelect={handleTabSelect}
             activeTab={activeTab}
