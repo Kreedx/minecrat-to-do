@@ -1,7 +1,7 @@
 // src/pages/Login.jsx
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { useState } from "react";
-import { auth, googleProvider, db } from "../firebase";
+import { auth, googleProvider, appleProvider, db } from "../firebase";
 import { useNavigate, Link } from "react-router-dom";
 import { ref, set, get } from "firebase/database";
 
@@ -32,6 +32,20 @@ export default function Login() {
     setError("");
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      await updateUserData(result.user);
+      navigate("/tasks");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await signInWithPopup(auth, appleProvider);
       await updateUserData(result.user);
       navigate("/tasks");
     } catch (err) {
@@ -105,6 +119,15 @@ export default function Login() {
           }`}
         >
           {loading ? 'Connecting...' : 'Sign in with Google'}
+        </button>
+        <button
+          onClick={handleAppleLogin}
+          disabled={loading}
+          className={`w-full py-2 bg-gray-600 hover:bg-gray-700 rounded text-white font-bold mb-4 ${
+            loading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+        >
+          {loading ? 'Connecting...' : 'Sign in with Apple'}
         </button>
         <p className="text-center text-sm">
           Don't have an account? <Link to="/register" className="text-blue-400 hover:text-blue-300">Register</Link>
