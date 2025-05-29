@@ -1,7 +1,7 @@
 // src/pages/Login.jsx
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { useState } from "react";
-import { auth, googleProvider, appleProvider, db } from "../firebase";
+import { auth, googleProvider, db } from "../firebase";
 import { useNavigate, Link } from "react-router-dom";
 import { ref, set, get } from "firebase/database";
 
@@ -41,19 +41,6 @@ export default function Login() {
     }
   };
 
-  const handleAppleLogin = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const result = await signInWithPopup(auth, appleProvider);
-      await updateUserData(result.user);
-      navigate("/tasks");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const updateUserData = async (user) => {
     const userRef = ref(db, `users/${user.uid}`);
@@ -78,59 +65,70 @@ export default function Login() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-b from-blue-400 to-green-500">
-      <div className="bg-gray-900 p-8 rounded shadow-md w-full max-w-sm text-white">
-        <h1 className="text-3xl font-bold mb-4 text-center">Log In</h1>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 via-green-400 to-yellow-300">
+      <div className="bg-white/90 backdrop-blur-md p-10 rounded-2xl shadow-2xl w-full max-w-md text-gray-900">
+        <h1 className="text-4xl font-extrabold mb-6 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-500 drop-shadow-lg">
+          Welcome Back
+        </h1>
         {error && (
-          <div className="bg-red-500 text-white p-3 rounded mb-4 text-sm">
+          <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm border border-red-300">
             {error}
           </div>
         )}
-        <input
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          type="email"
-          placeholder="Email"
-          disabled={loading}
-          className="mb-4 w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
-        />
-        <input
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          type="password"
-          placeholder="Password"
-          disabled={loading}
-          className="mb-4 w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
-        />
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className={`w-full py-2 bg-green-600 hover:bg-green-700 rounded text-white font-bold mb-4 ${
-            loading ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          {loading ? 'Logging in...' : 'Login'}
-        </button>
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className={`w-full py-2 bg-blue-600 hover:bg-blue-700 rounded text-white font-bold mb-4 ${
-            loading ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          {loading ? 'Connecting...' : 'Sign in with Google'}
-        </button>
-        <button
-          onClick={handleAppleLogin}
-          disabled={loading}
-          className={`w-full py-2 bg-gray-600 hover:bg-gray-700 rounded text-white font-bold mb-4 ${
-            loading ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          {loading ? 'Connecting...' : 'Sign in with Apple'}
-        </button>
-        <p className="text-center text-sm">
-          Don't have an account? <Link to="/register" className="text-blue-400 hover:text-blue-300">Register</Link>
+        <div className="space-y-4">
+          <input
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            type="email"
+            placeholder="Email"
+            disabled={loading}
+            className="w-full px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+          />
+          <input
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            type="password"
+            placeholder="Password"
+            disabled={loading}
+            className="w-full px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400 transition"
+          />
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className={`w-full py-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 rounded-lg text-white font-bold shadow-md transition ${
+              loading ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+          <div className="flex items-center my-2">
+            <div className="flex-grow h-px bg-gray-300" />
+            <span className="mx-2 text-gray-400 text-xs">or</span>
+            <div className="flex-grow h-px bg-gray-300" />
+          </div>
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className={`w-full flex items-center justify-center gap-2 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-gray-700 font-semibold shadow transition ${
+              loading ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5">
+              <g>
+                <path fill="#4285F4" d="M43.6 20.5h-1.9V20H24v8h11.3c-1.6 4.3-5.7 7-10.3 7-6.1 0-11-4.9-11-11s4.9-11 11-11c2.6 0 5 .9 6.9 2.6l6.1-6.1C34.5 7.1 29.5 5 24 5 12.9 5 4 13.9 4 25s8.9 20 20 20c11 0 20-8.9 20-20 0-1.3-.1-2.7-.4-4z"/>
+                <path fill="#34A853" d="M6.3 14.7l6.6 4.8C14.5 16.1 18.9 13 24 13c2.6 0 5 .9 6.9 2.6l6.1-6.1C34.5 7.1 29.5 5 24 5c-7.2 0-13.4 4.1-16.7 10.2z"/>
+                <path fill="#FBBC05" d="M24 45c5.3 0 10.2-1.8 14-4.9l-6.5-5.3c-2 1.4-4.5 2.2-7.5 2.2-4.6 0-8.7-2.7-10.3-7H6.3C9.6 40.9 16.1 45 24 45z"/>
+                <path fill="#EA4335" d="M43.6 20.5h-1.9V20H24v8h11.3c-1.1 3-3.3 5.4-6.1 6.8l6.5 5.3C41.7 36.2 44 31.1 44 25c0-1.3-.1-2.7-.4-4z"/>
+              </g>
+            </svg>
+            {loading ? 'Connecting...' : 'Sign in with Google'}
+          </button>
+        </div>
+        <p className="text-center text-sm mt-6">
+          Don't have an account?{' '}
+          <Link to="/register" className="text-blue-500 hover:underline font-medium">
+            Register
+          </Link>
         </p>
       </div>
     </div>
