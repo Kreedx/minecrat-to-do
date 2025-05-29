@@ -459,13 +459,13 @@ const TaskList = ({ activeTab, setActiveTab }) => {
                 }`}>
                   {errorMessage}
                 </div>
-              )}
-
-              {/* Collaborators Section */}
+              )}              {/* Collaborators Section */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-700 mb-2">Collaborators</h4>
+                <h4 className="font-medium text-gray-700 mb-2">
+                  {activeTab.owner?.id === currentUser.uid ? 'Shared Users' : 'Tab Access'}
+                </h4>
                 
-                {activeTab.owner === currentUser.uid ? (
+                {activeTab.owner?.id === currentUser.uid ? (
                   <>
                     <div className="flex gap-2 mb-4">
                       <input
@@ -485,23 +485,27 @@ const TaskList = ({ activeTab, setActiveTab }) => {
 
                     {/* List current collaborators */}
                     <div className="space-y-2">
-                      {activeTab.collaborators && Object.entries(activeTab.collaborators).map(([id, data]) => (
-                        <div key={id} className="flex items-center justify-between bg-white p-2 rounded shadow-sm">
-                          <span className="text-sm text-gray-600">{data.email}</span>
-                          <button
-                            onClick={() => handleRemoveCollaborator(id, data.email)}
-                            className="px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
+                      {activeTab.members && Object.entries(activeTab.members).map(([id, data]) => {
+                        // Skip the owner in the list
+                        if (id === currentUser.uid) return null;
+                        return (
+                          <div key={id} className="flex items-center justify-between bg-white p-2 rounded shadow-sm">
+                            <span className="text-sm text-gray-600">{data.email}</span>
+                            <button
+                              onClick={() => handleRemoveCollaborator(id, data.email)}
+                              className="px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </>
                 ) : (
                   <div className="flex items-center justify-between bg-white p-3 rounded shadow-sm">
                     <div>
-                      <p className="text-sm text-gray-600">Shared by: {activeTab.sharedBy}</p>
+                      <p className="text-sm text-gray-600">Owner: {activeTab.owner?.email}</p>
                       <button
                         onClick={handleLeaveTab}
                         className="mt-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
@@ -518,7 +522,7 @@ const TaskList = ({ activeTab, setActiveTab }) => {
                   Created: {new Date(activeTab.createdAt).toLocaleString()}
                 </p>
                 <p className="text-sm text-gray-600">
-                  Owner: {activeTab.owner === currentUser.uid ? 'You' : activeTab.sharedBy}
+                  Owner: {activeTab.owner?.email}
                 </p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -534,9 +538,7 @@ const TaskList = ({ activeTab, setActiveTab }) => {
                   ))}
                 </dl>
               </div>
-            </div>
-
-            <div className="flex justify-between items-center">
+            </div>            <div className="flex justify-between items-center">
               <div className="space-x-2">
                 <button
                   onClick={() => {
@@ -547,7 +549,7 @@ const TaskList = ({ activeTab, setActiveTab }) => {
                 >
                   Close
                 </button>
-                {activeTab.owner === currentUser.uid && (
+                {activeTab.owner?.id === currentUser.uid && (
                   <button
                     onClick={() => {
                       setEditTab({
@@ -563,7 +565,7 @@ const TaskList = ({ activeTab, setActiveTab }) => {
                   </button>
                 )}
               </div>
-              {activeTab.owner === currentUser.uid && (
+              {activeTab.owner?.id === currentUser.uid && (
                 <button
                   onClick={() => setShowDeleteConfirmation(true)}
                   className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
