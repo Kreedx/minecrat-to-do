@@ -14,7 +14,20 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+// Debug log for Firebase config
+console.log("Initializing Firebase with config:", {
+  hasApiKey: !!firebaseConfig.apiKey,
+  hasAuthDomain: !!firebaseConfig.authDomain,
+  hasDatabaseURL: !!firebaseConfig.databaseURL,
+  hasProjectId: !!firebaseConfig.projectId
+});
+
 const app = initializeApp(firebaseConfig);
+console.log("Firebase app initialized"); // Debug log
+
 export const auth = getAuth(app);
+console.log("Firebase auth initialized"); // Debug log
+
 export const googleProvider = new GoogleAuthProvider();
 export const db = getDatabase(app);
+console.log("Firebase database initialized"); // Debug log

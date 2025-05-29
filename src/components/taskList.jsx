@@ -71,15 +71,22 @@ const TaskList = ({ activeTab, setActiveTab }) => {
 
   const handleDeleteTab = async () => {
     try {
-      // Mark the tab as deleted instead of removing it
-      const tabRef = ref(db, `users/${currentUser.uid}/tabs/${activeTab.id}`);
-      await update(tabRef, { deleted: true });
-      setActiveTab(null); // Clear the active tab in the parent component
+      // Mark the tab as deleted in the shared path
+      const tabRef = ref(db, `tabs/${activeTab.id}`);
+      await update(tabRef, { 
+        deleted: true,
+        deletedBy: {
+          id: currentUser.uid,
+          email: currentUser.email
+        },
+        deletedAt: Date.now()
+      });
+      setActiveTab(null);
       setShowSettingsModal(false);
       setShowDeleteConfirmation(false);
     } catch (error) {
       console.error("Error deleting tab:", error);
-      alert("Failed to delete tab. Please try again.");
+      setErrorMessage("Failed to delete tab. Please try again.");
     }
   };
 
@@ -108,42 +115,28 @@ const TaskList = ({ activeTab, setActiveTab }) => {
       hour12: true,
     });
 
-    const updates = {};
-
-    // Get all existing tasks and increment their order
-    tasks.forEach((task) => {
-      const taskRef = `users/${currentUser.uid}/tabs/${activeTab.id}/tasks/${task.id}`;
-      updates[`${taskRef}/order`] = task.order + 1;
-    });
-
-    // Generate a new task ID that will be shared between owner and collaborators
-    const taskRef = ref(db, `users/${currentUser.uid}/tabs/${activeTab.id}/tasks`);
-    const newTaskRef = push(taskRef);
-    const newTaskId = newTaskRef.key;
-
     // Create the new task data
-    const taskData = {
-      ...newTask,
-      createdAt: formattedDate,
-      order: 0,
-      id: newTaskId,
-      createdBy: currentUser.uid,
-      creator: currentUser.email,
-    };
-
-    // Add task to owner's path
-    updates[`users/${activeTab.owner}/tabs/${activeTab.id}/tasks/${newTaskId}`] = taskData;
-
-    // Add task to all collaborators' paths
-    if (activeTab.collaborators) {
-      Object.keys(activeTab.collaborators).forEach(collaboratorId => {
-        updates[`users/${collaboratorId}/tabs/${activeTab.id}/tasks/${newTaskId}`] = taskData;
-      });
-    }
-
+    const taskRef = ref(db, `tabs/${activeTab.id}/tasks`);
+    const newTaskRef = push(taskRef);
+    
     try {
-      // Update Firebase with all changes in one transaction
-      await update(ref(db), updates);
+      await update(ref(db), {
+        [`tabs/${activeTab.id}/tasks/${newTaskRef.key}`]: {
+          ...newTask,
+          createdAt: formattedDate,
+          createdBy: {
+            id: currentUser.uid,
+            email: currentUser.email
+          },
+          lastUpdatedBy: {
+            id: currentUser.uid,
+            email: currentUser.email
+          },
+          lastUpdatedAt: Date.now(),
+          order: tasks.length // Add at the end by default
+        }
+      });
+
       setShowNewTaskModal(false);
       setNewTask({ text: "", startDate: "", endDate: "", status: "not-started" });
     } catch (error) {
@@ -165,27 +158,18 @@ const TaskList = ({ activeTab, setActiveTab }) => {
     // Optimistically update the local state
     setTasks(items);
 
-    // Create updates object for Firebase
-    const updates = {};
-    items.forEach((task, index) => {
-      // Update order in owner's path
-      const ownerTaskRef = `users/${activeTab.owner}/tabs/${activeTab.id}/tasks/${task.id}`;
-      updates[`${ownerTaskRef}/order`] = index;
-      updates[`${ownerTaskRef}/lastUpdatedBy`] = currentUser.email;
-      updates[`${ownerTaskRef}/lastUpdatedAt`] = Date.now();
-
-      // Update order in collaborators' paths
-      if (activeTab.collaborators) {
-        Object.keys(activeTab.collaborators).forEach(collaboratorId => {
-          const collaboratorTaskRef = `users/${collaboratorId}/tabs/${activeTab.id}/tasks/${task.id}`;
-          updates[`${collaboratorTaskRef}/order`] = index;
-          updates[`${collaboratorTaskRef}/lastUpdatedBy`] = currentUser.email;
-          updates[`${collaboratorTaskRef}/lastUpdatedAt`] = Date.now();
-        });
-      }
-    });
-
     try {
+      // Update each task's order in the shared path
+      const updates = {};
+      items.forEach((task, index) => {
+        updates[`tabs/${activeTab.id}/tasks/${task.id}/order`] = index;
+        updates[`tabs/${activeTab.id}/tasks/${task.id}/lastUpdatedBy`] = {
+          id: currentUser.uid,
+          email: currentUser.email
+        };
+        updates[`tabs/${activeTab.id}/tasks/${task.id}/lastUpdatedAt`] = Date.now();
+      });
+
       // Update Firebase
       await update(ref(db), updates);
     } catch (error) {
@@ -199,23 +183,30 @@ const TaskList = ({ activeTab, setActiveTab }) => {
     if (!editTab.name.trim()) return;
 
     try {
-      const tabRef = ref(db, `users/${currentUser.uid}/tabs/${activeTab.id}`);
-      await update(tabRef, {
+      const tabRef = ref(db, `tabs/${activeTab.id}`);
+      const updates = {
         name: editTab.name.trim(),
-        icon: editTab.icon || activeTab.icon, // Keep old icon if none selected
-      });
+        icon: editTab.icon || activeTab.icon,
+        lastUpdatedBy: {
+          id: currentUser.uid,
+          email: currentUser.email
+        },
+        lastUpdatedAt: Date.now()
+      };
+      
+      await update(tabRef, updates);
       setShowEditModal(false);
+      
       // Update the active tab in parent component
       setActiveTab({
         ...activeTab,
-        name: editTab.name.trim(),
-        icon: editTab.icon || activeTab.icon,
+        ...updates
       });
     } catch (error) {
       console.error("Error updating tab:", error);
+      setErrorMessage("Failed to update tab");
     }
   };
-
   const handleAddCollaborator = async () => {
     if (!newCollaboratorEmail) return;
 
@@ -233,24 +224,19 @@ const TaskList = ({ activeTab, setActiveTab }) => {
         return;
       }
 
-      const tabRef = ref(db, `users/${currentUser.uid}/tabs/${activeTab.id}`);
+      const tabRef = ref(db, `tabs/${activeTab.id}`);
       const updates = {
         [`collaborators/${collaborator.id}`]: {
+          role: 'editor',
+          email: newCollaboratorEmail
+        },
+        [`members/${collaborator.id}`]: {
           role: 'editor',
           email: newCollaboratorEmail
         }
       };
 
       await update(tabRef, updates);
-
-      // Add tab to collaborator's account
-      const collaboratorTabRef = ref(db, `users/${collaborator.id}/tabs/${activeTab.id}`);
-      await update(collaboratorTabRef, {
-        ...activeTab,
-        isShared: true,
-        sharedBy: currentUser.email
-      });
-
       setNewCollaboratorEmail('');
       setErrorMessage('Collaborator added successfully');
     } catch (error) {
@@ -261,17 +247,13 @@ const TaskList = ({ activeTab, setActiveTab }) => {
 
   const handleRemoveCollaborator = async (collaboratorId, collaboratorEmail) => {
     try {
-      // Remove collaborator from the tab
-      const tabRef = ref(db, `users/${currentUser.uid}/tabs/${activeTab.id}/collaborators/${collaboratorId}`);
-      await remove(tabRef);
-
-      // Remove tab from collaborator's account
-      const collaboratorTabRef = ref(db, `users/${collaboratorId}/tabs/${activeTab.id}`);
-      await remove(collaboratorTabRef);
+      // Remove member from the shared tab
+      const memberRef = ref(db, `tabs/${activeTab.id}/members/${collaboratorId}`);
+      await remove(memberRef);
 
       // Update active tab state
       const updatedTab = { ...activeTab };
-      delete updatedTab.collaborators[collaboratorId];
+      delete updatedTab.members[collaboratorId];
       setActiveTab(updatedTab);
     } catch (error) {
       console.error("Error removing collaborator:", error);
@@ -281,14 +263,9 @@ const TaskList = ({ activeTab, setActiveTab }) => {
 
   const handleLeaveTab = async () => {
     try {
-      // Remove tab from current user's account
-      const tabRef = ref(db, `users/${currentUser.uid}/tabs/${activeTab.id}`);
-      await remove(tabRef);
-      
-      // Remove user from collaborators list in owner's tab
-      const ownerTabRef = ref(db, `users/${activeTab.owner}/tabs/${activeTab.id}/collaborators/${currentUser.uid}`);
-      await remove(ownerTabRef);
-
+      // Remove user from members list in the shared tab
+      const memberRef = ref(db, `tabs/${activeTab.id}/members/${currentUser.uid}`);
+      await remove(memberRef);
       setActiveTab(null);
     } catch (error) {
       console.error("Error leaving tab:", error);
@@ -299,27 +276,22 @@ const TaskList = ({ activeTab, setActiveTab }) => {
   useEffect(() => {
     if (!activeTab?.id) return;
 
-    // Determine which user's path to listen to (owner or current user)
-    const taskRef = ref(
-      db,
-      `users/${activeTab.owner}/tabs/${activeTab.id}/tasks`
-    );
+    const taskRef = ref(db, `tabs/${activeTab.id}/tasks`);
 
     const unsubscribe = onValue(taskRef, (snapshot) => {
       const data = snapshot.val();
       const loadedTasks = data
         ? Object.entries(data)
             .map(([id, value]) => ({ id, ...value }))
-            .filter(task => !task.deleted) // Filter out deleted tasks
+            .filter(task => !task.deleted)
+            .sort((a, b) => {
+              // Sort by order first, then creation date
+              if (a.order === b.order) {
+                return (new Date(b.createdAt)).getTime() - (new Date(a.createdAt)).getTime();
+              }
+              return (a.order || 0) - (b.order || 0);
+            })
         : [];
-      
-      // Sort by order property, using index as fallback
-      loadedTasks.sort((a, b) => {
-        if (a.order === undefined && b.order === undefined) return 0;
-        if (a.order === undefined) return 1;
-        if (b.order === undefined) return -1;
-        return a.order - b.order;
-      });
       
       setTasks(loadedTasks);
     }, 
@@ -329,7 +301,7 @@ const TaskList = ({ activeTab, setActiveTab }) => {
     });
 
     return () => unsubscribe();
-  }, [activeTab, currentUser.uid]);
+  }, [activeTab?.id]);
 
   return (
     <div className="p-4">
@@ -376,26 +348,19 @@ const TaskList = ({ activeTab, setActiveTab }) => {
                     index={index}
                     activeTab={activeTab}
                     onDelete={async (id) => {
-                      const updates = {};
-                      const ownerTaskRef = `users/${activeTab.owner}/tabs/${activeTab.id}/tasks/${id}`;
-                      
-                      // Mark as deleted in owner's path
-                      updates[ownerTaskRef] = {
-                        ...task,
-                        deleted: true,
-                        deletedBy: currentUser.email,
-                        deletedAt: Date.now()
-                      };
-
-                      // Mark as deleted in all collaborators' paths
-                      if (activeTab.collaborators) {
-                        Object.keys(activeTab.collaborators).forEach(collaboratorId => {
-                          const collaboratorTaskRef = `users/${collaboratorId}/tabs/${activeTab.id}/tasks/${id}`;
-                          updates[collaboratorTaskRef] = updates[ownerTaskRef];
+                      try {
+                        const taskRef = ref(db, `tabs/${activeTab.id}/tasks/${id}`);
+                        await update(taskRef, {
+                          deleted: true,
+                          deletedBy: {
+                            id: currentUser.uid,
+                            email: currentUser.email
+                          },
+                          deletedAt: Date.now()
                         });
+                      } catch (error) {
+                        console.error("Error deleting task:", error);
                       }
-
-                      await update(ref(db), updates);
                     }}
                   />
                 ))}

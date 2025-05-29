@@ -10,14 +10,21 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("Setting up auth state listener"); // Debug log
     const unsubscribe = onAuthStateChanged(auth, user => {
-      console.log("Auth state changed:", user); // Debug log
+      console.log("Auth state changed:", user?.email); // Changed to show email instead of full user object
       setCurrentUser(user);
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      console.log("Cleaning up auth state listener"); // Debug log
+      unsubscribe();
+    };
   }, []);
+
+  // Debug log for loading state
+  console.log("AuthProvider state:", { loading, hasUser: !!currentUser });
 
   const value = {
     currentUser,

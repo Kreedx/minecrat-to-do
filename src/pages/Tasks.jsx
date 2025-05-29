@@ -13,13 +13,18 @@ export default function Tasks() {
   const [error, setError] = useState(null);
   const [tabs, setTabs] = useState([]);
 
+  console.log("Tasks component state:", { currentUser: !!currentUser, loading, error }); // Debug log
+
   const handleLogout = async () => {
+    console.log("Attempting to log out"); // Debug log
     try {
       // Clear local state before logout
       setActiveTab(null);
       setTabs([]);
       await signOut(auth);
+      console.log("Successfully logged out"); // Debug log
     } catch (error) {
+      console.error("Logout error:", error); // Debug log
       setError("Failed to log out");
     }
   };
@@ -35,54 +40,64 @@ export default function Tasks() {
   };
 
   useEffect(() => {
+    console.log("Tasks useEffect running, currentUser:", !!currentUser); // Debug log
+    
     if (!currentUser) {
+      console.log("No current user, resetting state"); // Debug log
       setLoading(false);
       setTabs([]);
       setActiveTab(null);
       return;
     }
 
-    // Reference to user's tabs
-    const tabsRef = ref(db, `users/${currentUser.uid}/tabs`);
-    
-    const unsubscribe = onValue(
-      tabsRef,
-      async (snapshot) => {
-        try {
-          const data = snapshot.val();
-          if (data) {
-            const tabsArray = Object.entries(data)
-              .map(([id, value]) => ({
-                id,
-                ...value,
-                isOwner: value.owner === currentUser.uid,
-              }))
-              .filter((tab) => !tab.deleted)
-              .sort((a, b) => {
-                // Sort owned tabs first, then by creation date
-                if (a.isOwner && !b.isOwner) return -1;
-                if (!a.isOwner && b.isOwner) return 1;
-                return b.createdAt - a.createdAt;
-              });
+    // Subscribe to all tabs where the current user is a member
+    const tabsRef = ref(db, 'tabs');
+    console.log("Setting up tabs listener"); // Debug log
+      const unsubscribe = onValue(tabsRef, (snapshot) => {
+      console.log("Received tabs update"); // Debug log
+      try {
+        const data = snapshot.val();
+        console.log("Tabs data:", { 
+          hasData: !!data, 
+          tabsCount: data ? Object.keys(data).length : 0,
+          currentUserId: currentUser.uid,
+        });
+        
+        // Debug log for each tab's members
+        if (data) {
+          Object.entries(data).forEach(([tabId, tabData]) => {
+            console.log(`Tab ${tabId} members:`, tabData.members);
+          });
+        }
+        if (data) {
+          const tabsArray = Object.entries(data)
+            .map(([id, value]) => ({
+              id,
+              ...value,
+              // Check if current user is the owner
+              isOwner: value.owner?.id === currentUser.uid,
+              // Add role from members
+              userRole: value.members?.[currentUser.uid]?.role || 'none'
+            }))
+            // Only include tabs where the user is a member
+            .filter((tab) => tab.members?.[currentUser.uid] && !tab.deleted)
+            .sort((a, b) => {
+              // Sort by ownership first, then creation date
+              if (a.isOwner && !b.isOwner) return -1;
+              if (!a.isOwner && b.isOwner) return 1;
+              return b.createdAt - a.createdAt;
+            });
 
-            setTabs(tabsArray);
+          setTabs(tabsArray);
 
-            // Restore previously selected tab or select the first tab
-            const lastSelectedTabId = localStorage.getItem('lastSelectedTabId');
-            if (activeTab) {
-              const updatedActiveTab = tabsArray.find(
-                (tab) => tab.id === activeTab.id
-              );
-              if (updatedActiveTab) {
-                setActiveTab(updatedActiveTab);
-              } else if (lastSelectedTabId) {
-                const savedTab = tabsArray.find(tab => tab.id === lastSelectedTabId);
-                if (savedTab) {
-                  setActiveTab(savedTab);
-                } else if (tabsArray.length > 0) {
-                  setActiveTab(tabsArray[0]);
-                }
-              }
+          // Restore previously selected tab or select the first tab
+          const lastSelectedTabId = localStorage.getItem('lastSelectedTabId');
+          if (activeTab) {
+            const updatedActiveTab = tabsArray.find(
+              (tab) => tab.id === activeTab.id
+            );
+            if (updatedActiveTab) {
+              setActiveTab(updatedActiveTab);
             } else if (lastSelectedTabId) {
               const savedTab = tabsArray.find(tab => tab.id === lastSelectedTabId);
               if (savedTab) {
@@ -90,31 +105,31 @@ export default function Tasks() {
               } else if (tabsArray.length > 0) {
                 setActiveTab(tabsArray[0]);
               }
-            } else if (tabsArray.length > 0 && !activeTab) {
+            }
+          } else if (lastSelectedTabId) {
+            const savedTab = tabsArray.find(tab => tab.id === lastSelectedTabId);
+            if (savedTab) {
+              setActiveTab(savedTab);
+            } else if (tabsArray.length > 0) {
               setActiveTab(tabsArray[0]);
             }
-          } else {
-            setTabs([]);
-            setActiveTab(null);
-            localStorage.removeItem('lastSelectedTabId');
+          } else if (tabsArray.length > 0 && !activeTab) {
+            setActiveTab(tabsArray[0]);
           }
-        } catch (err) {
-          console.error('Error processing tabs:', err);
-          setError('Error loading tabs');
-        } finally {
-          setLoading(false);
+        } else {
+          setTabs([]);
+          setActiveTab(null);
+          localStorage.removeItem('lastSelectedTabId');
         }
-      },
-      (error) => {
-        console.error('Firebase error:', error);
-        setError(error.message);
+      } catch (err) {
+        console.error('Error processing tabs:', err);
+        setError('Error loading tabs');
+      } finally {
         setLoading(false);
       }
-    );
+    });
 
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [currentUser]);
 
   if (loading)

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { ref, push, get } from 'firebase/database';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import IconPicker from './IconPicker';
 import * as Icons from 'react-icons/fa';
@@ -44,6 +44,12 @@ export default function TabList({ onTabSelect, activeTab, tabs }) {
     try {
       setErrorMessage('');
       let collaborators = {};
+      let members = {
+        [currentUser.uid]: {
+          role: 'owner',
+          email: currentUser.email
+        }
+      };
       
       if (collaboratorEmail) {
         const collaborator = await findUserByEmail(collaboratorEmail);
@@ -51,36 +57,33 @@ export default function TabList({ onTabSelect, activeTab, tabs }) {
           setErrorMessage('User not found with this email');
           return;
         }
-        // Add collaborator with full access
+        // Add collaborator with editor role
         collaborators[collaborator.id] = {
+          role: 'editor',
+          email: collaboratorEmail
+        };
+        // Add collaborator to members list as well
+        members[collaborator.id] = {
           role: 'editor',
           email: collaboratorEmail
         };
       }
 
-      console.log("Adding new tab for user:", currentUser.uid);
-      const tabsRef = ref(db, `users/${currentUser.uid}/tabs`);
+      // Create a new tab
+      const tabsRef = ref(db, 'tabs');
       const newTab = {
         name: newTabName.trim(),
         icon: selectedIcon,
         createdAt: Date.now(),
-        owner: currentUser.uid,
-        collaborators: collaborators
+        owner: {
+          id: currentUser.uid,
+          email: currentUser.email
+        },
+        collaborators: collaborators,
+        members: members
       };
+
       await push(tabsRef, newTab);
-      
-      // If there's a collaborator, create a reference in their account too
-      if (collaboratorEmail) {
-        const collaborator = await findUserByEmail(collaboratorEmail);
-        if (collaborator) {
-          const collaboratorTabRef = ref(db, `users/${collaborator.id}/tabs`);
-          await push(collaboratorTabRef, {
-            ...newTab,
-            isShared: true,
-            sharedBy: currentUser.email
-          });
-        }
-      }
 
       console.log("New tab added successfully");
       setShowNewTabModal(false);

@@ -66,26 +66,15 @@ export default function TaskItem({ task, onDelete, activeTab, index }) {
 
   const handleStatusChange = async (newStatus) => {
     try {
-      const updates = {};
-      const ownerPath = `users/${activeTab.owner}/tabs/${activeTab.id}/tasks/${task.id}`;
-      
-      // Update status in owner's path
-      updates[ownerPath] = {
-        ...task,
+      const taskRef = ref(db, `tabs/${activeTab.id}/tasks/${task.id}`);
+      await update(taskRef, {
         status: newStatus,
-        lastUpdatedBy: currentUser.email,
+        lastUpdatedBy: {
+          id: currentUser.uid,
+          email: currentUser.email
+        },
         lastUpdatedAt: Date.now()
-      };
-
-      // Update status in all collaborators' paths
-      if (activeTab.collaborators) {
-        Object.keys(activeTab.collaborators).forEach(collaboratorId => {
-          const collaboratorPath = `users/${collaboratorId}/tabs/${activeTab.id}/tasks/${task.id}`;
-          updates[collaboratorPath] = updates[ownerPath];
-        });
-      }
-
-      await update(ref(db), updates);
+      });
       setShowStatusMenu(false);
     } catch (error) {
       console.error("Error updating task status:", error);
@@ -99,26 +88,15 @@ export default function TaskItem({ task, onDelete, activeTab, index }) {
 
   const handleUpdate = async () => {
     try {
-      const updates = {};
-      const ownerPath = `users/${activeTab.owner}/tabs/${activeTab.id}/tasks/${task.id}`;
-      
-      // Update task in owner's path
-      updates[ownerPath] = {
-        ...task,
+      const taskRef = ref(db, `tabs/${activeTab.id}/tasks/${task.id}`);
+      await update(taskRef, {
         ...updatedTask,
-        lastUpdatedBy: currentUser.email,
+        lastUpdatedBy: {
+          id: currentUser.uid,
+          email: currentUser.email
+        },
         lastUpdatedAt: Date.now()
-      };
-
-      // Update task in all collaborators' paths
-      if (activeTab.collaborators) {
-        Object.keys(activeTab.collaborators).forEach(collaboratorId => {
-          const collaboratorPath = `users/${collaboratorId}/tabs/${activeTab.id}/tasks/${task.id}`;
-          updates[collaboratorPath] = updates[ownerPath];
-        });
-      }
-
-      await update(ref(db), updates);
+      });
       setShowUpdateModal(false);
     } catch (error) {
       console.error("Error updating task:", error);
