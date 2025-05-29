@@ -13,7 +13,6 @@ export default function Tasks() {
   const [error, setError] = useState(null);
   const [tabs, setTabs] = useState([]);
 
-  console.log("Tasks component state:", { currentUser: !!currentUser, loading, error }); // Debug log
 
   const handleTabSelect = (tab) => {
     // Store selected tab ID in localStorage
@@ -26,10 +25,7 @@ export default function Tasks() {
   };
 
   useEffect(() => {
-    console.log("Tasks useEffect running, currentUser:", !!currentUser); // Debug log
-    
     if (!currentUser) {
-      console.log("No current user, resetting state"); // Debug log
       setLoading(false);
       setTabs([]);
       setActiveTab(null);
@@ -38,23 +34,10 @@ export default function Tasks() {
 
     // Subscribe to all tabs where the current user is a member
     const tabsRef = ref(db, 'tabs');
-    console.log("Setting up tabs listener"); // Debug log
       const unsubscribe = onValue(tabsRef, (snapshot) => {
-      console.log("Received tabs update"); // Debug log
       try {
-        const data = snapshot.val();
-        console.log("Tabs data:", { 
-          hasData: !!data, 
-          tabsCount: data ? Object.keys(data).length : 0,
-          currentUserId: currentUser.uid,
-        });
-        
-        // Debug log for each tab's members
-        if (data) {
-          Object.entries(data).forEach(([tabId, tabData]) => {
-            console.log(`Tab ${tabId} members:`, tabData.members);
-          });
-        }
+
+        const data = snapshot.val();   
         if (data) {
           const tabsArray = Object.entries(data)
             .map(([id, value]) => ({

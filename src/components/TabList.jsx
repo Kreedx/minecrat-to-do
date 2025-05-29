@@ -37,7 +37,6 @@ export default function TabList({ onTabSelect, activeTab, tabs }) {
 
   const handleAddTab = async () => {
     if (!newTabName.trim()) {
-      console.log("Tab name cannot be empty");
       return;
     }
 
@@ -84,8 +83,6 @@ export default function TabList({ onTabSelect, activeTab, tabs }) {
       };
 
       await push(tabsRef, newTab);
-
-      console.log("New tab added successfully");
       setShowNewTabModal(false);
       setNewTabName('');
       setSelectedIcon('');

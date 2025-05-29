@@ -93,7 +93,6 @@ export default function Navbar() {
     try {
       setShowProfileMenu(false);
       await signOut(auth);
-      console.log("Successfully logged out");
     } catch (error) {
       console.error("Logout error:", error);
     }
