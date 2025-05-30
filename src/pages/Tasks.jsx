@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
-import { ref, onValue } from "firebase/database";
+import { ref, onValue, update } from "firebase/database";
 import TaskList from "../components/taskList";
 import TabList from "../components/TabList";
 import Navbar from "../components/Navbar";
+import TabSettings from "../components/TabSettings";
 
 export default function Tasks() {
   const { currentUser } = useAuth();
@@ -12,7 +13,7 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tabs, setTabs] = useState([]);
-
+  const [showTabSettings, setShowTabSettings] = useState(false);
 
   const handleTabSelect = (tab) => {
     // Store selected tab ID in localStorage
@@ -101,6 +102,21 @@ export default function Tasks() {
     return () => unsubscribe();
   }, [currentUser]);
 
+  const handleDeleteTab = async () => {
+    if (!activeTab) return;
+    try {
+      const tabRef = ref(db, `tabs/${activeTab.id}`);
+      await update(tabRef, {
+        deleted: true,
+        deletedAt: Date.now()
+      });
+      setShowTabSettings(false);
+      setActiveTab(tabs.find(tab => tab.id !== activeTab.id) || null);
+    } catch (error) {
+      console.error("Error deleting tab:", error);
+    }
+  };
+
   if (loading)
     return <div className="p-6 text-gray-500 text-center">Loading tasks...</div>;
   if (error)
@@ -113,22 +129,32 @@ export default function Tasks() {
     <div className="text-gray-800">
       <Navbar />
       {/* Main Content */}      
-      <main className="max-w-7xl h-screen mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow">
-        <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6 mb-8">
-          <TabList
-            onTabSelect={handleTabSelect}
-            activeTab={activeTab}
-            tabs={tabs}
-          />
-          {activeTab ? (
-            <TaskList activeTab={activeTab} setActiveTab={setActiveTab} />
-          ) : (
-            <div className="text-center text-gray-500 py-10">
-              <p className="text-lg">Select a category to view your tasks.</p>
-            </div>
-          )}
-        </div>
-      </main>
+        <main className="min-h-screen max-w-7xl h-auto mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow">
+          <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6 mb-8">
+            <TabList
+          onTabSelect={handleTabSelect}
+          activeTab={activeTab}
+          tabs={tabs}
+          onSettingsClick={() => setShowTabSettings(true)}
+            />
+            {activeTab ? (
+          <TaskList activeTab={activeTab} setActiveTab={setActiveTab} />
+            ) : (
+          <div className="text-center text-gray-500 py-10">
+            <p className="text-lg">Select a category to view your tasks.</p>
+          </div>
+            )}
+          </div>
+        </main>
+
+        {/* Tab Settings Modal */}
+      {showTabSettings && activeTab && (
+        <TabSettings
+          tab={activeTab}
+          onClose={() => setShowTabSettings(false)}
+          onDelete={handleDeleteTab}
+        />
+      )}
     </div>
   );
 }

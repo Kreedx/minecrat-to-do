@@ -5,17 +5,13 @@ import TaskItem from "./taskItem";
 import { ref, push, remove, onValue, update, get } from "firebase/database";
 import { db } from "../firebase";
 import IconPicker from './IconPicker';
+import * as Icons from 'react-icons/fa';
 
 const TaskList = ({ activeTab, setActiveTab }) => {
   const { currentUser } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editTab, setEditTab] = useState({
-    name: "",
-    icon: "",
-  });
+
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [modalTitle, setModalTitle] = useState("Create New Task");
@@ -26,6 +22,16 @@ const TaskList = ({ activeTab, setActiveTab }) => {
     status: "",
   });
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [taskStatistics, setTaskStatistics] = useState({
+    total: 0,
+    "not-started": 0,
+    "in-progress": 0,
+    waiting: 0,
+    "on-hold": 0,
+    "needs-review": 0,
+    completed: 0,
+    canceled: 0
+  });
 
   // Calculate statistics
   const getTaskStats = () => {
@@ -82,8 +88,6 @@ const TaskList = ({ activeTab, setActiveTab }) => {
         deletedAt: Date.now()
       });
       setActiveTab(null);
-      setShowSettingsModal(false);
-      setShowDeleteConfirmation(false);
     } catch (error) {
       console.error("Error deleting tab:", error);
       setErrorMessage("Failed to delete tab. Please try again.");
@@ -136,6 +140,13 @@ const TaskList = ({ activeTab, setActiveTab }) => {
           order: tasks.length // Add at the end by default
         }
       });
+
+      // Update statistics immediately after adding task
+      setTaskStatistics(prev => ({
+        ...prev,
+        total: (prev.total || 0) + 1,
+        "not-started": (prev["not-started"] || 0) + 1
+      }));
 
       setShowNewTaskModal(false);
       setNewTask({ text: "", startDate: "", endDate: "", status: "not-started" });
@@ -294,6 +305,24 @@ const TaskList = ({ activeTab, setActiveTab }) => {
         : [];
       
       setTasks(loadedTasks);
+
+      // Calculate statistics
+      const stats = {
+        total: loadedTasks.length,
+        "not-started": 0,
+        "in-progress": 0,
+        waiting: 0,
+        "on-hold": 0,
+        "needs-review": 0,
+        completed: 0,
+        canceled: 0
+      };
+
+      loadedTasks.forEach(task => {
+        stats[task.status] = (stats[task.status] || 0) + 1;
+      });
+
+      setTaskStatistics(stats);
     }, 
     (error) => {
       console.error("Error loading tasks:", error);
@@ -306,23 +335,23 @@ const TaskList = ({ activeTab, setActiveTab }) => {
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">
-          Tasks for: {activeTab.name}
+        <h2 className="flex items-center gap-2 text-2xl font-bold text-blue-700 bg-blue-50 px-4 py-2 rounded-xl shadow-sm">
+          <span className="truncate text-decoration-underline max-w-xs" title={activeTab.name}>
+            {activeTab.name}'s Tasks:
+          </span>
         </h2>
         <div className="flex gap-2">
           <button
             onClick={() => setShowNewTaskModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700 transition flex items-center justify-center"
+            className="flex items-center gap-2 px-2 py-2 bg-gradient-to-r from-green-400 via-blue-400 to-blue-600 text-white rounded-full shadow-lg hover:scale-105 hover:from-green-500 hover:to-blue-700 transition-all duration-200 font-semibold text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
-            <span className="flex items-center justify-center text-xl w-6 h-6">+</span>
+            <span className="flex items-center justify-center text-2xl w-7 h-7 bg-white/20 rounded-full shadow-inner">
+              <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+                <rect x="9" y="4" width="2" height="12" rx="1" fill="currentColor"/>
+                <rect x="4" y="9" width="12" height="2" rx="1" fill="currentColor"/>
+              </svg>
+            </span>
             <span className="hidden sm:inline">Create Task</span>
-          </button>
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl shadow hover:bg-gray-300 transition flex items-center"
-          >
-            <span className="text-xl">⚙️</span>
-            <span className="hidden sm:inline ml-1">Settings</span>
           </button>
         </div>
       </div>
@@ -373,277 +402,85 @@ const TaskList = ({ activeTab, setActiveTab }) => {
 
       {/* New Task Modal */}
       {showNewTaskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl mx-2 p-6">
-            <h3
-              className={`text-xl font-semibold mb-4 ${
-                modalTitle !== "Create New Task"
-                  ? "text-red-600"
-                  : "text-gray-800"
-              }`}
-            >
-              {modalTitle}
-            </h3>
-
-            <input
-              type="text"
-              placeholder="Task description"
-              value={newTask.text}
-              onChange={(e) =>
-                setNewTask({ ...newTask, text: e.target.value })
-              }
-              className="w-full p-3 border rounded-lg mb-4 focus:ring focus:ring-blue-200"
-            />
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={newTask.startDate}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, startDate: e.target.value })
-                  }
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={newTask.endDate}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, endDate: e.target.value })
-                  }
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gradient-to-br from-white via-green-50 to-green-100 p-0 rounded-3xl shadow-2xl w-full max-w-lg mx-2 relative animate-fade-in">
+            <div className="absolute top-4 right-4">
               <button
                 onClick={() => setShowNewTaskModal(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition"
+                className="text-gray-400 hover:text-green-600 transition-colors text-2xl"
+                aria-label="Close"
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateTask}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
-              >
-                Create
+                &times;
               </button>
             </div>
-          </div>
-        </div>
-      )}
+            <div className="px-10 py-8">
+              <h3 className="text-2xl font-bold mb-6 text-center text-green-700 tracking-tight">
+                <span className="inline-block bg-green-100 rounded-full px-4 py-1 mb-2">
+                  ✨ Create New Task
+                </span>
+              </h3>
 
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl mx-2 p-6">
-            <h3 className="text-xl font-semibold mb-6 text-gray-800">
-              Tab Settings
-            </h3>
+              <div className="mb-5">
+                <label className="block text-sm font-semibold text-green-700 mb-2">
+                  Task Description
+                </label>
+                <input
+                  type="text"
+                  value={newTask.text}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, text: e.target.value })
+                  }
+                  placeholder="What needs to be done?"
+                  className="w-full p-3 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 bg-white shadow-sm transition"
+                  autoFocus
+                />
+              </div>
 
-            <div className="space-y-4 mb-6">
-              {errorMessage && (
-                <div className={`p-3 rounded-lg ${
-                  errorMessage.includes('success') 
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
-                }`}>
-                  {errorMessage}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-semibold text-green-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newTask.startDate}
+                    onChange={(e) =>
+                      setNewTask({ ...newTask, startDate: e.target.value })
+                    }
+                    className="w-full p-3 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 bg-white shadow-sm transition"
+                  />
                 </div>
-              )}              {/* Collaborators Section */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-700 mb-2">
-                  {activeTab.owner?.id === currentUser.uid ? 'Shared Users' : 'Tab Access'}
-                </h4>
-                
-                {activeTab.owner?.id === currentUser.uid ? (
-                  <>
-                    <div className="flex gap-2 mb-4">
-                      <input
-                        type="email"
-                        placeholder="Add collaborator by email"
-                        value={newCollaboratorEmail}
-                        onChange={(e) => setNewCollaboratorEmail(e.target.value)}
-                        className="flex-1 p-2 border rounded"
-                      />
-                      <button
-                        onClick={handleAddCollaborator}
-                        className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
-                      >
-                        Add
-                      </button>
-                    </div>
+                <div>
+                  <label className="block text-sm font-semibold text-green-700 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newTask.endDate}
+                    onChange={(e) =>
+                      setNewTask({ ...newTask, endDate: e.target.value })
+                    }
+                    className="w-full p-3 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 bg-white shadow-sm transition"
+                  />
+                </div>
+              </div>
 
-                    {/* List current collaborators */}
-                    <div className="space-y-2">
-                      {activeTab.members && Object.entries(activeTab.members).map(([id, data]) => {
-                        // Skip the owner in the list
-                        if (id === currentUser.uid) return null;
-                        return (
-                          <div key={id} className="flex items-center justify-between bg-white p-2 rounded shadow-sm">
-                            <span className="text-sm text-gray-600">{data.email}</span>
-                            <button
-                              onClick={() => handleRemoveCollaborator(id, data.email)}
-                              className="px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center justify-between bg-white p-3 rounded shadow-sm">
-                    <div>
-                      <p className="text-sm text-gray-600">Owner: {activeTab.owner?.email}</p>
-                      <button
-                        onClick={handleLeaveTab}
-                        className="mt-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
-                      >
-                        Leave Tab
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-700 mb-2">Tab Info</h4>
-                <p className="text-sm text-gray-600">
-                  Created: {new Date(activeTab.createdAt).toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Owner: {activeTab.owner?.email}
-                </p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-700 mb-2">Statistics</h4>
-                <dl className="grid grid-cols-2 gap-4">
-                  {Object.entries(getTaskStats()).map(([key, value]) => (
-                    <div key={key} className="bg-white p-3 rounded-lg shadow-sm">
-                      <dt className="text-sm text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1')}</dt>
-                      <dd className="text-lg font-semibold text-gray-700">
-                        {key === 'completionRate' ? `${value}%` : value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            </div>            <div className="flex justify-between items-center">
-              <div className="space-x-2">
+              <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => {
-                    setShowSettingsModal(false);
-                    setErrorMessage('');
-                  }}
-                  className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition"
+                  type="button"
+                  onClick={() => setShowNewTaskModal(false)}
+                  className="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium text-gray-700 transition-colors shadow"
                 >
-                  Close
+                  Cancel
                 </button>
-                {activeTab.owner?.id === currentUser.uid && (
-                  <button
-                    onClick={() => {
-                      setEditTab({
-                        name: activeTab.name,
-                        icon: activeTab.icon
-                      });
-                      setShowEditModal(true);
-                      setShowSettingsModal(false);
-                    }}
-                    className="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition"
-                  >
-                    Edit Tab
-                  </button>
-                )}
-              </div>
-              {activeTab.owner?.id === currentUser.uid && (
                 <button
-                  onClick={() => setShowDeleteConfirmation(true)}
-                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
+                  type="submit"
+                  onClick={handleCreateTask}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow font-medium transition-colors"
                 >
-                  Delete Tab
+                  Create Task
                 </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Tab Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl mx-2 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">
-              Edit Tab
-            </h3>
-
-            <input
-              type="text"
-              placeholder="Tab name"
-              value={editTab.name}
-              onChange={(e) => setEditTab({ ...editTab, name: e.target.value })}
-              className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tab Icon
-              </label>
-              <IconPicker onSelect={(icon) => setEditTab({ ...editTab, icon })} selected={editTab.icon} />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEditTab}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
-                disabled={!editTab.name.trim()}
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl mx-2 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">
-              Delete Tab
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete <strong>"{activeTab.name}"</strong>?<br />
-              This tab and its tasks will be hidden from your view but can be restored later if needed.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowDeleteConfirmation(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteTab}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition"
-              >
-                Delete
-              </button>
+              </div>
             </div>
           </div>
         </div>
